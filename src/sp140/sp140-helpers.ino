@@ -1,5 +1,7 @@
 // Copyright 2020 <Zach Whitehead>
 
+telem_t telemdata; //Telemetry format struct
+
 // track flight timer
 void handleFlightTime() {
   if (!armed) {
@@ -137,12 +139,157 @@ void prepareSerialRead() {
 
 void handleTelemetry() {
   prepareSerialRead();
-  Serial5.readBytes(escData, ESC_DATA_SIZE);
+  Serial5.readBytes(escDataV2, ESC_DATA_V2_SIZE);
+  //printRawSentence();
+
   // enforceChecksum();
-  if (enforceFletcher16()) {
-    parseData();
-  }
-  // printRawSentence();
+  //if (enforceFletcher16()) {
+  HandleSerialData(escDataV2);
+  //  parseData();
+  //}
+}
+
+void HandleSerialData(byte buffer[]) {
+    // if(sizeof(buffer) != 22) {
+    //     Serial.print("wrong size ");
+    //     Serial.println(sizeof(buffer));
+    //     return; //Ignore malformed packets
+    // }
+
+    if (buffer[20] != 255 || buffer[21] != 255) {
+      Serial.println("no stop byte");
+
+      return; //Stop byte of 65535 not recieved
+    }
+
+    //Check the fletcher checksum
+    int checkFletch = CheckFlectcher16(buffer);
+    
+    // checksum
+    telemdata.CSUM_HI = buffer[19];
+    telemdata.CSUM_LO = buffer[18];
+
+    int checkCalc = (int)(((telemdata.CSUM_HI << 8) + telemdata.CSUM_LO));
+    
+    // Checksums do not match
+    if (checkFletch != checkCalc) {
+      // Serial.print("fletch fail ");
+      // Serial.print(checkFletch);
+      // Serial.print(" ");
+      // Serial.println(checkCalc);
+      Serial.println("fail");
+
+      return;
+    }
+    // Voltage
+    telemdata.V_HI = buffer[1];
+    telemdata.V_LO = buffer[0];
+
+    float voltage = (float)((telemdata.V_HI << 8) + telemdata.V_LO);
+    float currentVoltage = voltage / 100; //Voltage
+    Serial.print("Voltage ");
+    Serial.print(currentVoltage);
+    Serial.print(" - ");
+
+
+    // Temperature
+    telemdata.T_HI = buffer[3];
+    telemdata.T_LO = buffer[2];
+
+    float rawVal = (float)((telemdata.T_HI << 8) + telemdata.T_LO);
+
+    int SERIESRESISTOR = 10000;
+    int NOMINAL_RESISTANCE = 10000;
+    int NOMINAL_TEMPERATURE = 25;
+    int BCOEFFICIENT = 3455;
+
+    //convert value to resistance
+    float Rntc = (4096 / (float)rawVal) - 1;
+    Rntc = SERIESRESISTOR / Rntc;
+
+    // Get the temperature
+    float temperature = Rntc / (float)NOMINAL_RESISTANCE;                           // (R/Ro)
+    temperature = (float)log(temperature);                                     // ln(R/Ro)
+    temperature /= BCOEFFICIENT;                                                    // 1/B * ln(R/Ro)
+
+    temperature += (float)1.0 / ((float)NOMINAL_TEMPERATURE + (float)273.15);       // + (1/To)
+    temperature = (float)1.0 / temperature;                                         // Invert
+    temperature -= (float)273.15;                                                   // convert to Celcius
+    
+    // filter bad values
+    if (temperature < 0 || temperature > 200){
+        temperature = 0;
+    }
+
+    temperature = (float)trunc(temperature * 100) / 100;                    // 2 decimal places
+    float currentTemp = temperature; //Temperature
+
+    Serial.print("Temperature ");
+    Serial.print(currentTemp);
+    Serial.print(" - ");
+
+    // Current
+    telemdata.I_HI = buffer[5];
+    telemdata.I_LO = buffer[4];
+
+    int currentAmpsInput = (int)((telemdata.I_HI << 8) + telemdata.I_LO);
+    currentAmpsInput = (currentAmpsInput / 12.5); //Input current
+
+    // Reservedz
+    telemdata.R0_HI = buffer[7];
+    telemdata.R0_LO = buffer[6];
+
+    // eRPM
+    telemdata.RPM0 = buffer[11];
+    telemdata.RPM1 = buffer[10];
+    telemdata.RPM2 = buffer[9];
+    telemdata.RPM3 = buffer[8];
+
+    int poleCount = 62; //2 poles by default, change as needed
+    int currentERPM = (int)((telemdata.RPM0 << 24) + (telemdata.RPM1 << 16) + (telemdata.RPM2 << 8) + (telemdata.RPM3 << 0)); //ERPM output
+    int currentRPM = currentERPM / poleCount; //Real RPM output
+
+    Serial.print("RPM ");
+    Serial.print(currentRPM);
+    Serial.print(" - ");
+
+    // Input Duty
+    telemdata.DUTYIN_HI = buffer[13];
+    telemdata.DUTYIN_LO = buffer[12];
+
+    int throttleDuty = (int)(((telemdata.DUTYIN_HI << 8) + telemdata.DUTYIN_LO)/10);
+    int currentThrottle = (throttleDuty / 10); //Input throttle
+    Serial.print("throttle ");
+    Serial.print(currentThrottle);
+    Serial.print(" - ");
+
+    // Motor Duty
+    telemdata.MOTORDUTY_HI = buffer[15];
+    telemdata.MOTORDUTY_LO = buffer[14];
+
+    int motorDuty = (int)(((telemdata.MOTORDUTY_HI << 8) + telemdata.MOTORDUTY_LO)/10);
+    int currentMotorDuty = (motorDuty / 10); //Motor duty cycle
+
+    // Reserved
+    telemdata.R1 = buffer[17];
+
+    int currentPowerInput = currentVoltage * currentAmpsInput; //Input power
+
+    int currentPhase = currentAmpsInput / currentMotorDuty; //Phase current
+
+    /* Status Flags
+    # Bit position in byte indicates flag set, 1 is set, 0 is default
+    # Bit 0: Motor Started, set when motor is running as expected
+    # Bit 1: Motor Saturation Event, set when saturation detected and power is reduced for desync protection
+    # Bit 2: ESC Over temperature event occuring, shut down method as per configuration
+    # Bit 3: ESC Overvoltage event occuring, shut down method as per configuration
+    # Bit 4: ESC Undervoltage event occuring, shut down method as per configuration
+    # Bit 5: Startup error detected, motor stall detected upon trying to start*/
+    telemdata.statusFlag = buffer[16];
+    Serial.print("status ");
+    Serial.print(telemdata.statusFlag, BIN);
+    Serial.print(" - ");
+    Serial.println(" ");
 }
 
 // run checksum and return true if valid
@@ -178,39 +325,28 @@ bool enforceFletcher16() {
   return true;
 }
 
-// Not used
-void enforceChecksum() {
-  // Check checksum, revert to previous data if bad:
-  word checksum = word(escData[19], escData[18]);
-  int sum = 0;
-  for (int i=0; i<ESC_DATA_SIZE-2; i++) {
-    sum += escData[i];
-  }
-  Serial.print(F("     SUM: "));
-  Serial.println(sum);
-  Serial.print(F("CHECKSUM: "));
-  Serial.println(checksum);
-  if (sum != checksum) {
-    Serial.println(F("__________________________CHECKSUM FAILED!"));
-    failed++;
-    if (failed >= 1000) {  // keep track of how reliable the transmission is
-      transmitted = 1;
-      failed = 0;
+int CheckFlectcher16(byte byteBuffer[]) {
+    int fCCRC16;
+    int i;
+    int c0 = 0;
+    int c1 = 0;
+
+    // Calculate checksum intermediate bytesUInt16
+    for (i = 0; i < 18; i++) //Check only first 18 bytes, skip crc bytes
+    {
+        c0 = (int)(c0 + ((int)byteBuffer[i])) % 255;
+        c1 = (int)(c1 + c0) % 255;
     }
-    for (int i=0; i<ESC_DATA_SIZE; i++) {  // revert to previous data
-      escData[i] = prevData[i];
-    }
-  }
-  for (int i=0; i<ESC_DATA_SIZE; i++) {
-    prevData[i] = escData[i];
-  }
+    // Assemble the 16-bit checksum value
+    fCCRC16 = ( c1 << 8 ) | c0;
+    return (int)fCCRC16;
 }
 
 // for debugging
 void printRawSentence() {
   Serial.print(F("DATA: "));
-  for (int i = 0; i < ESC_DATA_SIZE; i++) {
-    Serial.print(escData[i], HEX);
+  for (int i = 0; i < ESC_DATA_V2_SIZE; i++) {
+    Serial.print(escDataV2[i], HEX);
     Serial.print(F(" "));
   }
   Serial.println();
