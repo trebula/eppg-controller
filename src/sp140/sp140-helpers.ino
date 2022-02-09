@@ -1,7 +1,5 @@
 // Copyright 2020 <Zach Whitehead>
 
-telem_t telemdata; //Telemetry format struct
-
 // track flight timer
 void handleFlightTime() {
   if (!armed) {
@@ -144,12 +142,12 @@ void handleTelemetry() {
 
   // enforceChecksum();
   //if (enforceFletcher16()) {
-  HandleSerialData(escDataV2);
+  handleSerialData(escDataV2);
   //  parseData();
   //}
 }
 
-void HandleSerialData(byte buffer[]) {
+void handleSerialData(byte buffer[]) {
     // if(sizeof(buffer) != 22) {
     //     Serial.print("wrong size ");
     //     Serial.println(sizeof(buffer));
@@ -166,10 +164,10 @@ void HandleSerialData(byte buffer[]) {
     int checkFletch = CheckFlectcher16(buffer);
     
     // checksum
-    telemdata.CSUM_HI = buffer[19];
-    telemdata.CSUM_LO = buffer[18];
+    raw_telemdata.CSUM_HI = buffer[19];
+    raw_telemdata.CSUM_LO = buffer[18];
 
-    int checkCalc = (int)(((telemdata.CSUM_HI << 8) + telemdata.CSUM_LO));
+    int checkCalc = (int)(((raw_telemdata.CSUM_HI << 8) + raw_telemdata.CSUM_LO));
     
     // Checksums do not match
     if (checkFletch != checkCalc) {
@@ -182,21 +180,24 @@ void HandleSerialData(byte buffer[]) {
       return;
     }
     // Voltage
-    telemdata.V_HI = buffer[1];
-    telemdata.V_LO = buffer[0];
+    raw_telemdata.V_HI = buffer[1];
+    raw_telemdata.V_LO = buffer[0];
 
-    float voltage = (float)((telemdata.V_HI << 8) + telemdata.V_LO);
-    float currentVoltage = voltage / 100; //Voltage
-    Serial.print("Voltage ");
-    Serial.print(currentVoltage);
-    Serial.print(" - ");
+    float voltage = (float)((raw_telemdata.V_HI << 8) + raw_telemdata.V_LO);
+    telemetryData.volts = voltage / 100; //Voltage
+
+    if (telemetryData.volts > BATT_MIN_V) {
+      telemetryData.volts += 1.5;  // calibration
+    }
+
+    voltageBuffer.push(telemetryData.volts);
 
 
     // Temperature
-    telemdata.T_HI = buffer[3];
-    telemdata.T_LO = buffer[2];
+    raw_telemdata.T_HI = buffer[3];
+    raw_telemdata.T_LO = buffer[2];
 
-    float rawVal = (float)((telemdata.T_HI << 8) + telemdata.T_LO);
+    float rawVal = (float)((raw_telemdata.T_HI << 8) + raw_telemdata.T_LO);
 
     int SERIESRESISTOR = 10000;
     int NOMINAL_RESISTANCE = 10000;
@@ -229,53 +230,56 @@ void HandleSerialData(byte buffer[]) {
     Serial.print(" - ");
 
     // Current
-    telemdata.I_HI = buffer[5];
-    telemdata.I_LO = buffer[4];
+    raw_telemdata.I_HI = buffer[5];
+    raw_telemdata.I_LO = buffer[4];
 
-    int currentAmpsInput = (int)((telemdata.I_HI << 8) + telemdata.I_LO);
-    currentAmpsInput = (currentAmpsInput / 12.5); //Input current
+    int currentAmpsInput = (int)((raw_telemdata.I_HI << 8) + raw_telemdata.I_LO);
+    telemetryData.amps = (currentAmpsInput / 12.5); //Input current
+
+    // Serial.print(F("Amps: "));
+    // Serial.println(amps);
+
+    watts = telemetryData.amps * telemetryData.volts;
 
     // Reservedz
-    telemdata.R0_HI = buffer[7];
-    telemdata.R0_LO = buffer[6];
+    raw_telemdata.R0_HI = buffer[7];
+    raw_telemdata.R0_LO = buffer[6];
 
     // eRPM
-    telemdata.RPM0 = buffer[11];
-    telemdata.RPM1 = buffer[10];
-    telemdata.RPM2 = buffer[9];
-    telemdata.RPM3 = buffer[8];
+    raw_telemdata.RPM0 = buffer[11];
+    raw_telemdata.RPM1 = buffer[10];
+    raw_telemdata.RPM2 = buffer[9];
+    raw_telemdata.RPM3 = buffer[8];
 
-    int poleCount = 62; //2 poles by default, change as needed
-    int currentERPM = (int)((telemdata.RPM0 << 24) + (telemdata.RPM1 << 16) + (telemdata.RPM2 << 8) + (telemdata.RPM3 << 0)); //ERPM output
+    int poleCount = 62;
+    int currentERPM = (int)((raw_telemdata.RPM0 << 24) + (raw_telemdata.RPM1 << 16) + (raw_telemdata.RPM2 << 8) + (raw_telemdata.RPM3 << 0)); //ERPM output
     int currentRPM = currentERPM / poleCount; //Real RPM output
+    telemetryData.eRPM = currentRPM;
 
     Serial.print("RPM ");
     Serial.print(currentRPM);
     Serial.print(" - ");
 
     // Input Duty
-    telemdata.DUTYIN_HI = buffer[13];
-    telemdata.DUTYIN_LO = buffer[12];
+    raw_telemdata.DUTYIN_HI = buffer[13];
+    raw_telemdata.DUTYIN_LO = buffer[12];
 
-    int throttleDuty = (int)(((telemdata.DUTYIN_HI << 8) + telemdata.DUTYIN_LO)/10);
-    int currentThrottle = (throttleDuty / 10); //Input throttle
+    int throttleDuty = (int)(((raw_telemdata.DUTYIN_HI << 8) + raw_telemdata.DUTYIN_LO)/10);
+    telemetryData.inPWM = (throttleDuty / 10); //Input throttle
+
     Serial.print("throttle ");
-    Serial.print(currentThrottle);
+    Serial.print(telemetryData.inPWM);
     Serial.print(" - ");
 
     // Motor Duty
-    telemdata.MOTORDUTY_HI = buffer[15];
-    telemdata.MOTORDUTY_LO = buffer[14];
+    raw_telemdata.MOTORDUTY_HI = buffer[15];
+    raw_telemdata.MOTORDUTY_LO = buffer[14];
 
-    int motorDuty = (int)(((telemdata.MOTORDUTY_HI << 8) + telemdata.MOTORDUTY_LO)/10);
+    int motorDuty = (int)(((raw_telemdata.MOTORDUTY_HI << 8) + raw_telemdata.MOTORDUTY_LO)/10);
     int currentMotorDuty = (motorDuty / 10); //Motor duty cycle
 
     // Reserved
-    telemdata.R1 = buffer[17];
-
-    int currentPowerInput = currentVoltage * currentAmpsInput; //Input power
-
-    int currentPhase = currentAmpsInput / currentMotorDuty; //Phase current
+    raw_telemdata.R1 = buffer[17];
 
     /* Status Flags
     # Bit position in byte indicates flag set, 1 is set, 0 is default
@@ -285,9 +289,10 @@ void HandleSerialData(byte buffer[]) {
     # Bit 3: ESC Overvoltage event occuring, shut down method as per configuration
     # Bit 4: ESC Undervoltage event occuring, shut down method as per configuration
     # Bit 5: Startup error detected, motor stall detected upon trying to start*/
-    telemdata.statusFlag = buffer[16];
+    raw_telemdata.statusFlag = buffer[16];
+    telemetryData.statusFlag = raw_telemdata.statusFlag;
     Serial.print("status ");
-    Serial.print(telemdata.statusFlag, BIN);
+    Serial.print(raw_telemdata.statusFlag, BIN);
     Serial.print(" - ");
     Serial.println(" ");
 }

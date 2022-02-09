@@ -11,6 +11,7 @@ typedef struct {
   float eRPM;
   float inPWM;
   float outPWM;
+  int statusFlag;
   word checksum;
 }STR_ESC_TELEMETRY_140;
 
@@ -72,5 +73,6 @@ typedef struct  {
 #pragma pack(pop)
 
 static STR_ESC_TELEMETRY_140 telemetryData;
+static telem_t raw_telemdata; //Telemetry format struct
 
 #endif  // INC_SP140_STRUCTS_H_
