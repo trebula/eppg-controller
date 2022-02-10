@@ -167,16 +167,11 @@ void handleSerialData(byte buffer[]) {
     raw_telemdata.CSUM_HI = buffer[19];
     raw_telemdata.CSUM_LO = buffer[18];
 
+    //TODO alert if no new data in 3 seconds
     int checkCalc = (int)(((raw_telemdata.CSUM_HI << 8) + raw_telemdata.CSUM_LO));
     
     // Checksums do not match
     if (checkFletch != checkCalc) {
-      // Serial.print("fletch fail ");
-      // Serial.print(checkFletch);
-      // Serial.print(" ");
-      // Serial.println(checkCalc);
-      Serial.println("fail");
-
       return;
     }
     // Voltage
@@ -225,19 +220,18 @@ void handleSerialData(byte buffer[]) {
     temperature = (float)trunc(temperature * 100) / 100;                    // 2 decimal places
     float currentTemp = temperature; //Temperature
 
-    Serial.print("Temperature ");
-    Serial.print(currentTemp);
-    Serial.print(" - ");
-
     // Current
     raw_telemdata.I_HI = buffer[5];
     raw_telemdata.I_LO = buffer[4];
 
     int currentAmpsInput = (int)((raw_telemdata.I_HI << 8) + raw_telemdata.I_LO);
-    telemetryData.amps = (currentAmpsInput / 12.5); //Input current
+    if (currentAmpsInput < 600 ) { // TODO remove when weird data packets fixed
+      telemetryData.amps = (currentAmpsInput / 12.5); //Input current
+    }
 
-    // Serial.print(F("Amps: "));
-    // Serial.println(amps);
+    Serial.print("amps ");
+    Serial.print(currentAmpsInput);
+    Serial.print(" - ");
 
     watts = telemetryData.amps * telemetryData.volts;
 
