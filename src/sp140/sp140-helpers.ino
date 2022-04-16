@@ -144,6 +144,7 @@ void handleTelemetry() {
   //}
 }
 
+// new for v2
 void handleSerialData(byte buffer[]) {
     // if(sizeof(buffer) != 22) {
     //     Serial.print("wrong size ");
@@ -215,7 +216,7 @@ void handleSerialData(byte buffer[]) {
     }
 
     temperature = (float)trunc(temperature * 100) / 100;                    // 2 decimal places
-    float currentTemp = temperature; //Temperature
+    telemetryData.temperatureC = temperature;
 
     // Current
     raw_telemdata.I_HI = buffer[5];
@@ -288,6 +289,7 @@ void handleSerialData(byte buffer[]) {
     Serial.println(" ");
 }
 
+// old
 // run checksum and return true if valid
 bool enforceFletcher16() {
   // Check checksum, revert to previous data if bad:
@@ -321,6 +323,7 @@ bool enforceFletcher16() {
   return true;
 }
 
+// new v2
 int CheckFlectcher16(byte byteBuffer[]) {
     int fCCRC16;
     int i;
@@ -348,7 +351,7 @@ void printRawSentence() {
   Serial.println();
 }
 
-
+// OLD
 void parseData() {
   // LSB First
   // TODO is this being called even with no ESC?
