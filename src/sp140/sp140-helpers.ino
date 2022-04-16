@@ -5,10 +5,9 @@ void handleFlightTime() {
   if (!armed) {
     throttledFlag = true;
     throttled = false;
-  }
-  if (armed) {
+  } else { // armed
     // start the timer when armed and throttle is above the threshold
-    if (throttlePercent > 30 && throttledFlag) {
+    if (throttlePWM > 1300 && throttledFlag) {
       throttledAtMillis = millis();
       throttledFlag = false;
       throttled = true;
@@ -43,6 +42,15 @@ void displayTime(int val, int x, int y, uint16_t bg_color) {
   dispValue(seconds, prevSeconds, 2, 0, x+36, y, 2, BLACK, bg_color);
 }
 
+// maps battery percentage to a display color
+uint16_t batt2color(int percentage) {
+  if (percentage >= 30) {
+    return GREEN;
+  } else if (percentage >= 15) {
+    return YELLOW;
+  }
+  return RED;
+}
 
 //**************************************************************************************//
 //  Helper function to print values without flashing numbers due to slow screen refresh.
@@ -110,26 +118,15 @@ void initBmp() {
   bmp.begin_I2C();
   bmp.setOutputDataRate(BMP3_ODR_25_HZ);
   bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_2X);
-  bmp.setPressureOversampling(BMP3_OVERSAMPLING_8X);
-  bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
+  bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
+  bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_15);
 }
 
 void buzzInit(bool enableBuz) {
   pinMode(BUZ_PIN, OUTPUT);
-  return;  // TODO deprecated?
-
-  if (enableBuz) {
-    tone(BUZ_PIN, 500);
-    delay(200);
-    tone(BUZ_PIN, 700);
-    delay(200);
-    tone(BUZ_PIN, 900);
-    delay(200);
-    noTone(BUZ_PIN);
-  }
 }
 
-void prepareSerialRead() {
+void prepareSerialRead() {  // TODO needed?
   while (Serial5.available() > 0) {
     byte t = Serial5.read();
   }
@@ -364,7 +361,9 @@ void parseData() {
     telemetryData.volts += 1.5;  // calibration
   }
 
-  voltageBuffer.push(telemetryData.volts);
+  if (telemetryData.volts > 1) {  // ignore empty data
+    voltageBuffer.push(telemetryData.volts);
+  }
 
   // Serial.print(F("Volts: "));
   // Serial.println(telemetryData.volts);
@@ -431,21 +430,20 @@ void vibrateNotify() {
   vibe.go();
 }
 
-// throttle easing function based on performance mode
+// throttle easing function based on threshold/performance mode
 int limitedThrottle(int current, int last, int threshold) {
-  prevPotLvl = current;
-
-  if (current > last) {  // accelerating
-    if (current - last >= threshold) {  // acccelerating too fast. limit
-      int limitedThrottle = last + threshold;
-      prevPotLvl = limitedThrottle;
-      return limitedThrottle;
-    } else {
-      return current;
-    }
-  } else {  // deccelerating / maintaining
-    return current;
+  if (current - last >= threshold) {  // accelerating too fast. limit
+    int limitedThrottle = last + threshold;
+    // TODO: cleanup global var use
+    prevPotLvl = limitedThrottle;  // save for next time
+    return limitedThrottle;
+  } else if (last - current >= threshold * 2) {  // decelerating too fast. limit
+    int limitedThrottle = last - threshold * 2;  // double the decel vs accel
+    prevPotLvl = limitedThrottle;  // save for next time
+    return limitedThrottle;
   }
+  prevPotLvl = current;
+  return current;
 }
 
 // ring buffer for voltage readings
