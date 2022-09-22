@@ -135,7 +135,9 @@ void setup() {
   Watchdog.reset();
 #endif
   initDisplay();
-  modeSwitch();
+  if (button_top.isPressedRaw()) {
+    modeSwitch();
+  }
 }
 
 void setup140() {
@@ -232,6 +234,8 @@ void handleButtonEvent(AceButton* /* btn */, uint8_t eventType, uint8_t /* st */
     if (armed) {
       if (cruising) {
         removeCruise(true);
+      } else if (throttleSafe()) {
+        modeSwitch();
       } else {
         setCruise();
       }

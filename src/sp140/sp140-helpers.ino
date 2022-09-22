@@ -137,8 +137,6 @@ void initVibe() {
 
 // on boot check for button to switch mode
 void modeSwitch() {
-  if (!button_top.isPressedRaw()) { return; }
-
   // 0=CHILL 1=SPORT 2=LUDICROUS?!
   if (deviceData.performance_mode == 0) {
     deviceData.performance_mode = 1;
