@@ -136,7 +136,7 @@ void setup() {
 #endif
   initDisplay();
   if (button_top.isPressedRaw()) {
-    modeSwitch();
+    modeSwitch(false);
   }
 }
 
@@ -235,7 +235,7 @@ void handleButtonEvent(AceButton* /* btn */, uint8_t eventType, uint8_t /* st */
       if (cruising) {
         removeCruise(true);
       } else if (throttleSafe()) {
-        modeSwitch();
+        modeSwitch(true);
       } else {
         setCruise();
       }
@@ -272,6 +272,7 @@ void initDisplay() {
   delay(2500);
 }
 
+// wipes screen and resets properties
 void resetDisplay() {
   display.fillScreen(DEFAULT_BG_COLOR);
   display.setTextColor(BLACK);
@@ -461,16 +462,7 @@ void displayPage0() {
   float kwh = wattsHoursUsed / 1000;
   dispValue(kwh, prevKwh, 4, 1, 10, 71, 2, BLACK, DEFAULT_BG_COLOR);
   display.print("kWh");
-
-  display.setCursor(30, 60);
-  display.setTextSize(1);
-  if (deviceData.performance_mode == 0) {
-    display.setTextColor(BLUE);
-    display.print("CHILL");
-  } else {
-    display.setTextColor(RED);
-    display.print("SPORT");
-  }
+  displyMode();
 }
 
 // display second page (mAh and armed time)
@@ -485,6 +477,10 @@ void displayPage1() {
   dispValue(kwh, prevKilowatts, 4, 1, 10, 71, 2, BLACK, DEFAULT_BG_COLOR);
   display.print("kWh");
 
+  displyMode();
+}
+
+void displyMode() {
   display.setCursor(30, 60);
   display.setTextSize(1);
   if (deviceData.performance_mode == 0) {
