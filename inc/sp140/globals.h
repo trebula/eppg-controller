@@ -51,9 +51,4 @@ static STR_DEVICE_DATA_140_V1 deviceData;
 
 uint16_t bottom_bg_color = DEFAULT_BG_COLOR;
 
-enum perf_mode {
-  chill,
-  sport,
-  unknown
-};
 #endif  // INC_SP140_GLOBALS_H_
