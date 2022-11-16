@@ -4,7 +4,9 @@
 
 Arduino based logic for OpenPPG Throttle Controller
 
-#### This master branch is only for testing the latest firmware for the X4 and SP140
+#### This master branch is only for testing the latest firmware for the and SP140
+
+X4 code is being migrated to a new repo - https://github.com/openppg/x4-controller
 
 It may not be stable and is not recommended for flying.
 See stable releases [here](https://github.com/openppg/eppg-controller/releases)
@@ -48,7 +50,7 @@ Newer SP140 controllers feature the RP2040 MCU which is a dual-core variant of t
 
 ## Bootloader
 
-The latest batches of OpenPPG X4 and SP140 controllers use the UF2 bootloader (compatible with Arduino).
+The latest batches of OpenPPG SP140 controllers use the UF2 bootloader (compatible with Arduino).
 It makes firmware updates as simple as drag and drop.
 Learn more here https://github.com/openppg/uf2-samdx1
 
@@ -68,4 +70,4 @@ The open source web based config tool for updating certain settings over USB (wi
 
 ## Help improve these docs
 
-Pull requests are welcome for these instructions and code changes
+Pull requests are welcome for these instructions and code changes.
