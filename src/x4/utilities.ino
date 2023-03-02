@@ -62,7 +62,7 @@ void runVibe(unsigned int sequence[], int siz) {
   vibe.go();
 }
 
-void playMelody(unsigned int melody[], int siz) {
+void playMelody(uint16_t melody[], int siz) {
   for (int thisNote = 0; thisNote < siz; thisNote++) {
     // quarter note = 1000 / 4, eigth note = 1000/8, etc.
     int noteDuration = 125;
@@ -73,7 +73,7 @@ void playMelody(unsigned int melody[], int siz) {
 }
 
 void handleArmFail() {
-  unsigned int arm_fail_melody[] = { 820, 640 };
+  uint16_t arm_fail_melody[] = { 820, 640 };
   playMelody(arm_fail_melody, 2);
 }
 
@@ -101,7 +101,6 @@ String chipId() {
   ptr++;
   val4 = *ptr;
 
-  Serial.print("chip id: ");
   char id_buf[33];
   sprintf(id_buf, "%8x%8x%8x%8x", val1, val2, val3, val4);
   return String(id_buf);

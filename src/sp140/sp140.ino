@@ -2,14 +2,17 @@
 // OpenPPG
 
 #include "../../lib/crc.c"       // packet error checking
-#include "../../inc/sp140/config.h"          // device config
+#ifdef M0_PIO
+  #include "../../inc/sp140/m0-config.h"          // device config
+#else
+  #include "../../inc/sp140/rp2040-config.h"         // device config
+#endif
+
 #include "../../inc/sp140/structs.h"         // data structs
 #include <AceButton.h>           // button clicks
-#include "Adafruit_TinyUSB.h"
 #include <Adafruit_BMP3XX.h>     // barometer
 #include <Adafruit_DRV2605.h>    // haptic controller
 #include <Adafruit_ST7735.h>     // screen
-#include <Adafruit_SleepyDog.h>  // watchdog
 #include <ArduinoJson.h>
 #include <CircularBuffer.h>      // smooth out readings
 #include <ResponsiveAnalogRead.h>  // smoothing for throttle
@@ -19,7 +22,19 @@
 #include <Thread.h>   // run tasks at different intervals
 #include <TimeLib.h>  // convert time to hours mins etc
 #include <Wire.h>
-#include <extEEPROM.h>  // https://github.com/PaoloP74/extEEPROM
+#ifdef USE_TINYUSB
+  #include "Adafruit_TinyUSB.h"
+#endif
+
+#ifdef M0_PIO
+  #include <Adafruit_SleepyDog.h>  // watchdog
+  #include <extEEPROM.h>  // https://github.com/PaoloP74/extEEPROM
+#elif RP_PIO
+  // rp2040 specific libraries here
+  #include <EEPROM.h>
+  #include "hardware/watchdog.h"
+  #include "pico/unique_id.h"
+#endif
 
 #include <Fonts/FreeSansBold12pt7b.h>
 
@@ -31,13 +46,18 @@ Adafruit_ST7735 display = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 Adafruit_DRV2605 vibe;
 
 // USB WebUSB object
+#ifdef USE_TINYUSB
 Adafruit_USBD_WebUSB usb_web;
 WEBUSB_URL_DEF(landingPage, 1 /*https*/, "config.openppg.com");
+#endif
 
 ResponsiveAnalogRead pot(THROTTLE_PIN, false);
 AceButton button_top(BUTTON_TOP);
 ButtonConfig* buttonConfig = button_top.getButtonConfig();
-extEEPROM eep(kbits_64, 1, 64);
+#ifdef M0_PIO
+  extEEPROM eep(kbits_64, 1, 64);
+#endif
+
 CircularBuffer<float, 50> voltageBuffer;
 CircularBuffer<int, 8> potBuffer;
 
@@ -63,31 +83,32 @@ unsigned int last_throttle = 0;
 
 // the setup function runs once when you press reset or power the board
 void setup() {
+
+  Serial.begin(115200);
+  SerialESC.begin(ESC_BAUD_RATE);
+  SerialESC.setTimeout(ESC_TIMEOUT);
+
+#ifdef USE_TINYUSB
   usb_web.begin();
   usb_web.setLandingPage(&landingPage);
   usb_web.setLineStateCallback(line_state_callback);
-
-  Serial.begin(115200);
-  Serial5.begin(ESC_BAUD_RATE);
-  Serial5.setTimeout(ESC_TIMEOUT);
+#endif
 
   //Serial.print(F("Booting up (USB) V"));
   //Serial.print(VERSION_MAJOR + "." + VERSION_MINOR);
 
   pinMode(LED_SW, OUTPUT);   // set up the internal LED2 pin
 
-  analogReadResolution(12);     // M0 chip provides 12bit resolution
+  analogReadResolution(12);     // M0 family chip provides 12bit resolution
   pot.setAnalogResolution(4096);
   unsigned int startup_vibes[] = { 27, 27, 0 };
-  runVibe(startup_vibes, 3);
-
   initButtons();
 
   ledBlinkThread.onRun(blinkLED);
   ledBlinkThread.setInterval(500);
 
   displayThread.onRun(updateDisplay);
-  displayThread.setInterval(200);
+  displayThread.setInterval(250);
 
   buttonThread.onRun(checkButtons);
   buttonThread.setInterval(5);
@@ -101,47 +122,64 @@ void setup() {
   counterThread.onRun(trackPower);
   counterThread.setInterval(250);
 
+#ifdef M0_PIO
   Watchdog.enable(5000);
   uint8_t eepStatus = eep.begin(eep.twiClock100kHz);
+#elif RP_PIO
+  watchdog_enable(5000, 1);
+  EEPROM.begin(512);
+#endif
   refreshDeviceData();
   setup140();
+#ifdef M0_PIO
+  Watchdog.reset();
+#endif
   initDisplay();
+  modeSwitch();
 }
 
 void setup140() {
   esc.attach(ESC_PIN);
   esc.writeMicroseconds(ESC_DISARMED_PWM);
 
-  buzzInit(ENABLE_BUZ);
+  initBuzz();
   initBmp();
-  getAltitudeM(); // throw away first value
-  vibe.begin();
-  vibe.selectLibrary(1);
-  vibe.setMode(DRV2605_MODE_INTTRIG);
-
-  vibrateNotify();
-
-  if (button_top.isPressedRaw()) {
-    // Switch modes
-    // 0=CHILL 1=SPORT 2=LUDICROUS?!
-    if (deviceData.performance_mode == 0) {
-      deviceData.performance_mode = 1;
-    } else {
-      deviceData.performance_mode = 0;
-    }
-    writeDeviceData();
-    unsigned int notify_melody[] = { 900, 1976 };
-    playMelody(notify_melody, 2);
-  }
+  getAltitudeM();  // throw away first value
+  initVibe();
 }
 
 // main loop - everything runs in threads
 void loop() {
+#ifdef M0_PIO
   Watchdog.reset();
+#elif RP_PIO
+  watchdog_update();
+#endif
+
   // from WebUSB to both Serial & webUSB
-  if (usb_web.available()) parse_usb_serial();
+#ifdef USE_TINYUSB
+  if (!armed && usb_web.available()) parse_usb_serial();
+#endif
+
   threads.run();
 }
+
+#ifdef RP_PIO
+// set up the second core. Nothing to do for now
+void setup1() {}
+
+// automatically runs on the second core of the RP2040
+void loop1() {
+  if (rp2040.fifo.available() > 0) {
+    STR_NOTE noteData;
+    uint32_t note_msg = rp2040.fifo.pop();  // get note from fifo queue
+    memcpy((uint32_t*)&noteData, &note_msg, sizeof(noteData));
+    tone(BUZZER_PIN, noteData.freq);
+    delay(noteData.duration);
+    noTone(BUZZER_PIN);
+  }
+}
+#endif
 
 void checkButtons() {
   button_top.check();
@@ -157,19 +195,19 @@ void disarmSystem() {
   potBuffer.clear();
   prevPotLvl = 0;
 
-  unsigned int disarm_melody[] = { 2093, 1976, 880 };
-  unsigned int disarm_vibes[] = { 70, 33, 0 };
+  u_int16_t disarm_melody[] = { 2093, 1976, 880 };
+  unsigned int disarm_vibes[] = { 100, 0 };
 
   armed = false;
   removeCruise(false);
 
   ledBlinkThread.enabled = true;
-  updateDisplay();
   runVibe(disarm_vibes, 3);
   playMelody(disarm_melody, 3);
 
   bottom_bg_color = DEFAULT_BG_COLOR;
   display.fillRect(0, 93, 160, 40, bottom_bg_color);
+  updateDisplay();
 
   // update armed_time
   refreshDeviceData();
@@ -241,6 +279,7 @@ void resetDisplay() {
 }
 
 // read throttle and send to hub
+// read throttle
 void handleThrottle() {
   if (!armed) return;  // safe
 
@@ -256,7 +295,7 @@ void handleThrottle() {
     if (cruisingSecs >= CRUISE_GRACE && potRaw > POT_SAFE_LEVEL) {
       removeCruise(true);  // deactivate cruise
     } else {
-      throttlePWM = mapf(cruisedPotVal, 0, 4095, ESC_MIN_PWM, maxPWM);
+      throttlePWM = mapd(cruisedPotVal, 0, 4095, ESC_MIN_PWM, maxPWM);
     }
   } else {
     // no need to save & smooth throttle etc when in cruise mode (& pot == 0)
@@ -278,7 +317,7 @@ void handleThrottle() {
       maxPWM = ESC_MAX_PWM;
     }
     // mapping val to min and max pwm
-    throttlePWM = mapf(potLvl, 0, 4095, ESC_MIN_PWM, maxPWM);
+    throttlePWM = mapd(potLvl, 0, 4095, ESC_MIN_PWM, maxPWM);
   }
 
   esc.writeMicroseconds(throttlePWM);  // using val as the signal to esc
@@ -286,7 +325,7 @@ void handleThrottle() {
 
 // get the PPG ready to fly
 bool armSystem() {
-  unsigned int arm_melody[] = { 1760, 1976, 2093 };
+  uint16_t arm_melody[] = { 1760, 1976, 2093 };
   unsigned int arm_vibes[] = { 70, 33, 0 };
 
   armed = true;
@@ -516,9 +555,9 @@ void setCruise() {
     display.setCursor(70, 60);
     display.setTextSize(1);
     display.setTextColor(RED);
-    display.print("CRUISE");
+    display.print(F("CRUISE"));
 
-    unsigned int notify_melody[] = { 900, 900 };
+    uint16_t notify_melody[] = { 900, 900 };
     playMelody(notify_melody, 2);
 
     bottom_bg_color = YELLOW;
@@ -531,24 +570,24 @@ void setCruise() {
 void removeCruise(bool alert) {
   cruising = false;
 
-  if (armed) {
-    bottom_bg_color = ARMED_BG_COLOR;
-  } else {
-    bottom_bg_color = DEFAULT_BG_COLOR;
-  }
+  // update bottom bar
+  bottom_bg_color = DEFAULT_BG_COLOR;
+  if (armed) { bottom_bg_color = ARMED_BG_COLOR; }
   display.fillRect(0, 93, 160, 40, bottom_bg_color);
 
+  // update text status
   display.setCursor(70, 60);
   display.setTextSize(1);
   display.setTextColor(DEFAULT_BG_COLOR);
-  display.print("CRUISE");
+  display.print(F("CRUISE"));  // overwrite in bg color to remove
+  display.setTextColor(BLACK);
+
   if (alert) {
     vibrateNotify();
 
     if (ENABLE_BUZ) {
-      tone(BUZ_PIN, 500, 100);
-      delay(250);
-      tone(BUZ_PIN, 500, 100);
+      uint16_t notify_melody[] = { 500, 500 };
+      playMelody(notify_melody, 2);
     }
   }
 }

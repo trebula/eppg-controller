@@ -7,7 +7,7 @@ void handleFlightTime() {
     throttled = false;
   } else { // armed
     // start the timer when armed and throttle is above the threshold
-    if (throttlePWM > 1300 && throttledFlag) {
+    if (throttlePWM > 1250 && throttledFlag) {
       throttledAtMillis = millis();
       throttledFlag = false;
       throttled = true;
@@ -122,13 +122,37 @@ void initBmp() {
   bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_15);
 }
 
-void buzzInit(bool enableBuz) {
-  pinMode(BUZ_PIN, OUTPUT);
+// initialize the buzzer
+void initBuzz() {
+  pinMode(BUZZER_PIN, OUTPUT);
+}
+
+// initialize the vibration motor
+void initVibe() {
+  vibe.begin();
+  vibe.selectLibrary(1);
+  vibe.setMode(DRV2605_MODE_INTTRIG);
+  vibrateNotify();
+}
+
+// on boot check for button to switch mode
+void modeSwitch() {
+  if (!button_top.isPressedRaw()) { return; }
+
+  // 0=CHILL 1=SPORT 2=LUDICROUS?!
+  if (deviceData.performance_mode == 0) {
+    deviceData.performance_mode = 1;
+  } else {
+    deviceData.performance_mode = 0;
+  }
+  writeDeviceData();
+  uint16_t notify_melody[] = { 900, 1976 };
+  playMelody(notify_melody, 2);
 }
 
 void prepareSerialRead() {  // TODO needed?
-  while (Serial5.available() > 0) {
-    byte t = Serial5.read();
+  while (SerialESC.available() > 0) {
+    SerialESC.read();
   }
 }
 
@@ -371,7 +395,7 @@ void parseData() {
   // Serial.print(F("Volts: "));
   // Serial.println(telemetryData.volts);
 
-  // batteryPercent = mapf(telemetryData.volts, BATT_MIN_V, BATT_MAX_V, 0.0, 100.0); // flat line
+  // batteryPercent = mapd(telemetryData.volts, BATT_MIN_V, BATT_MAX_V, 0.0, 100.0); // flat line
 
   _temperatureC = word(escData[3], escData[2]);
   telemetryData.temperatureC = _temperatureC/100.0;
