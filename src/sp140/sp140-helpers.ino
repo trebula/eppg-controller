@@ -158,7 +158,7 @@ void prepareSerialRead() {  // TODO needed?
 
 void handleTelemetry() {
   prepareSerialRead();
-  Serial5.readBytes(escDataV2, ESC_DATA_V2_SIZE);
+  SerialESC.readBytes(escDataV2, ESC_DATA_V2_SIZE);
   //printRawSentence();
 
   // enforceChecksum();
@@ -168,7 +168,7 @@ void handleTelemetry() {
   //}
 }
 
-// new for v2
+// new for v2 ESC telemetry
 void handleSerialData(byte buffer[]) {
     // if(sizeof(buffer) != 22) {
     //     Serial.print("wrong size ");
@@ -208,7 +208,6 @@ void handleSerialData(byte buffer[]) {
     }
 
     voltageBuffer.push(telemetryData.volts);
-
 
     // Temperature
     raw_telemdata.T_HI = buffer[3];
@@ -251,9 +250,9 @@ void handleSerialData(byte buffer[]) {
       telemetryData.amps = (currentAmpsInput / 12.5); //Input current
     }
 
-    Serial.print("amps ");
-    Serial.print(currentAmpsInput);
-    Serial.print(" - ");
+    // Serial.print("amps ");
+    // Serial.print(currentAmpsInput);
+    // Serial.print(" - ");
 
     watts = telemetryData.amps * telemetryData.volts;
 
@@ -272,9 +271,9 @@ void handleSerialData(byte buffer[]) {
     int currentRPM = currentERPM / poleCount; //Real RPM output
     telemetryData.eRPM = currentRPM;
 
-    Serial.print("RPM ");
-    Serial.print(currentRPM);
-    Serial.print(" - ");
+    // Serial.print("RPM ");
+    // Serial.print(currentRPM);
+    // Serial.print(" - ");
 
     // Input Duty
     raw_telemdata.DUTYIN_HI = buffer[13];
@@ -283,9 +282,9 @@ void handleSerialData(byte buffer[]) {
     int throttleDuty = (int)(((raw_telemdata.DUTYIN_HI << 8) + raw_telemdata.DUTYIN_LO)/10);
     telemetryData.inPWM = (throttleDuty / 10); //Input throttle
 
-    Serial.print("throttle ");
-    Serial.print(telemetryData.inPWM);
-    Serial.print(" - ");
+    // Serial.print("throttle ");
+    // Serial.print(telemetryData.inPWM);
+    // Serial.print(" - ");
 
     // Motor Duty
     raw_telemdata.MOTORDUTY_HI = buffer[15];
@@ -307,10 +306,10 @@ void handleSerialData(byte buffer[]) {
     # Bit 5: Startup error detected, motor stall detected upon trying to start*/
     raw_telemdata.statusFlag = buffer[16];
     telemetryData.statusFlag = raw_telemdata.statusFlag;
-    Serial.print("status ");
-    Serial.print(raw_telemdata.statusFlag, BIN);
-    Serial.print(" - ");
-    Serial.println(" ");
+    // Serial.print("status ");
+    // Serial.print(raw_telemdata.statusFlag, BIN);
+    // Serial.print(" - ");
+    // Serial.println(" ");
 }
 
 // old
