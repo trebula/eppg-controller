@@ -2,11 +2,11 @@
 
 ![Build](https://github.com/openppg/eppg-controller/actions/workflows/config.yml/badge.svg)
 
-Arduino based logic for OpenPPG Throttle Controller
+Arduino based logic for OpenPPG SP140 Throttle Controller
 
 #### This master branch is only for testing the latest firmware for the and SP140
 
-X4 code is being migrated to a new repo - https://github.com/openppg/x4-controller
+X4 code has been migrated to a separate repo - https://github.com/openppg/x4-controller
 
 It may not be stable and is not recommended for flying.
 See stable releases [here](https://github.com/openppg/eppg-controller/releases)
