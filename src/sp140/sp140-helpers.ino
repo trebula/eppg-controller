@@ -200,11 +200,11 @@ void handleSerialData(byte buffer[]) {
     raw_telemdata.V_HI = buffer[1];
     raw_telemdata.V_LO = buffer[0];
 
-    float voltage = (float)((raw_telemdata.V_HI << 8) + raw_telemdata.V_LO);
-    telemetryData.volts = voltage / 100; //Voltage
+    float voltage = (raw_telemdata.V_HI << 8 | raw_telemdata.V_LO) / 100.0;
+    telemetryData.volts = voltage; //Voltage
 
     if (telemetryData.volts > BATT_MIN_V) {
-      telemetryData.volts += 1.5;  // calibration
+      telemetryData.volts += 1.0;  // calibration
     }
 
     voltageBuffer.push(telemetryData.volts);
@@ -215,10 +215,10 @@ void handleSerialData(byte buffer[]) {
 
     float rawVal = (float)((raw_telemdata.T_HI << 8) + raw_telemdata.T_LO);
 
-    int SERIESRESISTOR = 10000;
-    int NOMINAL_RESISTANCE = 10000;
-    int NOMINAL_TEMPERATURE = 25;
-    int BCOEFFICIENT = 3455;
+    static int SERIESRESISTOR = 10000;
+    static int NOMINAL_RESISTANCE = 10000;
+    static int NOMINAL_TEMPERATURE = 25;
+    static int BCOEFFICIENT = 3455;
 
     //convert value to resistance
     float Rntc = (4096 / (float)rawVal) - 1;
@@ -229,9 +229,9 @@ void handleSerialData(byte buffer[]) {
     temperature = (float)log(temperature);                                     // ln(R/Ro)
     temperature /= BCOEFFICIENT;                                                    // 1/B * ln(R/Ro)
 
-    temperature += (float)1.0 / ((float)NOMINAL_TEMPERATURE + (float)273.15);       // + (1/To)
-    temperature = (float)1.0 / temperature;                                         // Invert
-    temperature -= (float)273.15;                                                   // convert to Celcius
+    temperature += 1.0 / ((float)NOMINAL_TEMPERATURE + 273.15);       // + (1/To)
+    temperature = 1.0 / temperature;                                         // Invert
+    temperature -= 273.15;                                                   // convert to Celcius
     
     // filter bad values
     if (temperature < 0 || temperature > 200){
@@ -294,7 +294,7 @@ void handleSerialData(byte buffer[]) {
     int currentMotorDuty = (motorDuty / 10); //Motor duty cycle
 
     // Reserved
-    raw_telemdata.R1 = buffer[17];
+    // raw_telemdata.R1 = buffer[17];
 
     /* Status Flags
     # Bit position in byte indicates flag set, 1 is set, 0 is default
