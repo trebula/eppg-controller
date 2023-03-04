@@ -179,144 +179,144 @@ void handleTelemetry() {
 
 // new for v2 ESC telemetry
 void handleSerialData(byte buffer[]) {
-    // if(sizeof(buffer) != 22) {
-    //     Serial.print("wrong size ");
-    //     Serial.println(sizeof(buffer));
-    //     return; //Ignore malformed packets
-    // }
+  // if(sizeof(buffer) != 22) {
+  //     Serial.print("wrong size ");
+  //     Serial.println(sizeof(buffer));
+  //     return; //Ignore malformed packets
+  // }
 
-    if (buffer[20] != 255 || buffer[21] != 255) {
-      Serial.println("no stop byte");
+  if (buffer[20] != 255 || buffer[21] != 255) {
+    Serial.println("no stop byte");
 
-      return; //Stop byte of 65535 not recieved
-    }
+    return; //Stop byte of 65535 not recieved
+  }
 
-    //Check the fletcher checksum
-    int checkFletch = CheckFlectcher16(buffer);
-    
-    // checksum
-    raw_telemdata.CSUM_HI = buffer[19];
-    raw_telemdata.CSUM_LO = buffer[18];
+  //Check the fletcher checksum
+  int checkFletch = CheckFlectcher16(buffer);
 
-    //TODO alert if no new data in 3 seconds
-    int checkCalc = (int)(((raw_telemdata.CSUM_HI << 8) + raw_telemdata.CSUM_LO));
-    
-    // Checksums do not match
-    if (checkFletch != checkCalc) {
-      return;
-    }
-    // Voltage
-    raw_telemdata.V_HI = buffer[1];
-    raw_telemdata.V_LO = buffer[0];
+  // checksum
+  raw_telemdata.CSUM_HI = buffer[19];
+  raw_telemdata.CSUM_LO = buffer[18];
 
-    float voltage = (raw_telemdata.V_HI << 8 | raw_telemdata.V_LO) / 100.0;
-    telemetryData.volts = voltage; //Voltage
+  //TODO alert if no new data in 3 seconds
+  int checkCalc = (int)(((raw_telemdata.CSUM_HI << 8) + raw_telemdata.CSUM_LO));
 
-    if (telemetryData.volts > BATT_MIN_V) {
-      telemetryData.volts += 1.0;  // calibration
-    }
+  // Checksums do not match
+  if (checkFletch != checkCalc) {
+    return;
+  }
+  // Voltage
+  raw_telemdata.V_HI = buffer[1];
+  raw_telemdata.V_LO = buffer[0];
 
-    voltageBuffer.push(telemetryData.volts);
+  float voltage = (raw_telemdata.V_HI << 8 | raw_telemdata.V_LO) / 100.0;
+  telemetryData.volts = voltage; //Voltage
 
-    // Temperature
-    raw_telemdata.T_HI = buffer[3];
-    raw_telemdata.T_LO = buffer[2];
+  if (telemetryData.volts > BATT_MIN_V) {
+    telemetryData.volts += 1.0; // calibration
+  }
 
-    float rawVal = (float)((raw_telemdata.T_HI << 8) + raw_telemdata.T_LO);
+  voltageBuffer.push(telemetryData.volts);
 
-    static int SERIESRESISTOR = 10000;
-    static int NOMINAL_RESISTANCE = 10000;
-    static int NOMINAL_TEMPERATURE = 25;
-    static int BCOEFFICIENT = 3455;
+  // Temperature
+  raw_telemdata.T_HI = buffer[3];
+  raw_telemdata.T_LO = buffer[2];
 
-    //convert value to resistance
-    float Rntc = (4096 / (float)rawVal) - 1;
-    Rntc = SERIESRESISTOR / Rntc;
+  float rawVal = (float)((raw_telemdata.T_HI << 8) + raw_telemdata.T_LO);
 
-    // Get the temperature
-    float temperature = Rntc / (float)NOMINAL_RESISTANCE;                           // (R/Ro)
-    temperature = (float)log(temperature);                                     // ln(R/Ro)
-    temperature /= BCOEFFICIENT;                                                    // 1/B * ln(R/Ro)
+  static int SERIESRESISTOR = 10000;
+  static int NOMINAL_RESISTANCE = 10000;
+  static int NOMINAL_TEMPERATURE = 25;
+  static int BCOEFFICIENT = 3455;
 
-    temperature += 1.0 / ((float)NOMINAL_TEMPERATURE + 273.15);       // + (1/To)
-    temperature = 1.0 / temperature;                                         // Invert
-    temperature -= 273.15;                                                   // convert to Celcius
-    
-    // filter bad values
-    if (temperature < 0 || temperature > 200){
-        temperature = 0;
-    }
+  //convert value to resistance
+  float Rntc = (4096 / (float) rawVal) - 1;
+  Rntc = SERIESRESISTOR / Rntc;
 
-    temperature = (float)trunc(temperature * 100) / 100;                    // 2 decimal places
-    telemetryData.temperatureC = temperature;
+  // Get the temperature
+  float temperature = Rntc / (float) NOMINAL_RESISTANCE; // (R/Ro)
+  temperature = (float) log(temperature); // ln(R/Ro)
+  temperature /= BCOEFFICIENT; // 1/B * ln(R/Ro)
 
-    // Current
-    raw_telemdata.I_HI = buffer[5];
-    raw_telemdata.I_LO = buffer[4];
+  temperature += 1.0 / ((float) NOMINAL_TEMPERATURE + 273.15); // + (1/To)
+  temperature = 1.0 / temperature; // Invert
+  temperature -= 273.15; // convert to Celcius
 
-    int currentAmpsInput = (int)((raw_telemdata.I_HI << 8) + raw_telemdata.I_LO);
-    telemetryData.amps = (currentAmpsInput / 12.5); //Input current
+  // filter bad values
+  if (temperature < 0 || temperature > 200) {
+    temperature = 0;
+  }
 
-    // Serial.print("amps ");
-    // Serial.print(currentAmpsInput);
-    // Serial.print(" - ");
+  temperature = (float) trunc(temperature * 100) / 100; // 2 decimal places
+  telemetryData.temperatureC = temperature;
 
-    watts = telemetryData.amps * telemetryData.volts;
+  // Current
+  raw_telemdata.I_HI = buffer[5];
+  raw_telemdata.I_LO = buffer[4];
 
-    // Reservedz
-    raw_telemdata.R0_HI = buffer[7];
-    raw_telemdata.R0_LO = buffer[6];
+  int currentAmpsInput = (int)((raw_telemdata.I_HI << 8) + raw_telemdata.I_LO);
+  telemetryData.amps = (currentAmpsInput / 12.5); //Input current
 
-    // eRPM
-    raw_telemdata.RPM0 = buffer[11];
-    raw_telemdata.RPM1 = buffer[10];
-    raw_telemdata.RPM2 = buffer[9];
-    raw_telemdata.RPM3 = buffer[8];
+  // Serial.print("amps ");
+  // Serial.print(currentAmpsInput);
+  // Serial.print(" - ");
 
-    int poleCount = 62;
-    int currentERPM = (int)((raw_telemdata.RPM0 << 24) + (raw_telemdata.RPM1 << 16) + (raw_telemdata.RPM2 << 8) + (raw_telemdata.RPM3 << 0)); //ERPM output
-    int currentRPM = currentERPM / poleCount; //Real RPM output
-    telemetryData.eRPM = currentRPM;
+  watts = telemetryData.amps * telemetryData.volts;
 
-    // Serial.print("RPM ");
-    // Serial.print(currentRPM);
-    // Serial.print(" - ");
+  // Reservedz
+  raw_telemdata.R0_HI = buffer[7];
+  raw_telemdata.R0_LO = buffer[6];
 
-    // Input Duty
-    raw_telemdata.DUTYIN_HI = buffer[13];
-    raw_telemdata.DUTYIN_LO = buffer[12];
+  // eRPM
+  raw_telemdata.RPM0 = buffer[11];
+  raw_telemdata.RPM1 = buffer[10];
+  raw_telemdata.RPM2 = buffer[9];
+  raw_telemdata.RPM3 = buffer[8];
 
-    int throttleDuty = (int)(((raw_telemdata.DUTYIN_HI << 8) + raw_telemdata.DUTYIN_LO)/10);
-    telemetryData.inPWM = (throttleDuty / 10); //Input throttle
+  int poleCount = 62;
+  int currentERPM = (int)((raw_telemdata.RPM0 << 24) + (raw_telemdata.RPM1 << 16) + (raw_telemdata.RPM2 << 8) + (raw_telemdata.RPM3 << 0)); //ERPM output
+  int currentRPM = currentERPM / poleCount; //Real RPM output
+  telemetryData.eRPM = currentRPM;
 
-    // Serial.print("throttle ");
-    // Serial.print(telemetryData.inPWM);
-    // Serial.print(" - ");
+  // Serial.print("RPM ");
+  // Serial.print(currentRPM);
+  // Serial.print(" - ");
 
-    // Motor Duty
-    raw_telemdata.MOTORDUTY_HI = buffer[15];
-    raw_telemdata.MOTORDUTY_LO = buffer[14];
+  // Input Duty
+  raw_telemdata.DUTYIN_HI = buffer[13];
+  raw_telemdata.DUTYIN_LO = buffer[12];
 
-    int motorDuty = (int)(((raw_telemdata.MOTORDUTY_HI << 8) + raw_telemdata.MOTORDUTY_LO)/10);
-    int currentMotorDuty = (motorDuty / 10); //Motor duty cycle
+  int throttleDuty = (int)(((raw_telemdata.DUTYIN_HI << 8) + raw_telemdata.DUTYIN_LO) / 10);
+  telemetryData.inPWM = (throttleDuty / 10); //Input throttle
 
-    // Reserved
-    // raw_telemdata.R1 = buffer[17];
+  // Serial.print("throttle ");
+  // Serial.print(telemetryData.inPWM);
+  // Serial.print(" - ");
 
-    /* Status Flags
-    # Bit position in byte indicates flag set, 1 is set, 0 is default
-    # Bit 0: Motor Started, set when motor is running as expected
-    # Bit 1: Motor Saturation Event, set when saturation detected and power is reduced for desync protection
-    # Bit 2: ESC Over temperature event occuring, shut down method as per configuration
-    # Bit 3: ESC Overvoltage event occuring, shut down method as per configuration
-    # Bit 4: ESC Undervoltage event occuring, shut down method as per configuration
-    # Bit 5: Startup error detected, motor stall detected upon trying to start*/
-    raw_telemdata.statusFlag = buffer[16];
-    telemetryData.statusFlag = raw_telemdata.statusFlag;
-    // Serial.print("status ");
-    // Serial.print(raw_telemdata.statusFlag, BIN);
-    // Serial.print(" - ");
-    // Serial.println(" ");
+  // Motor Duty
+  raw_telemdata.MOTORDUTY_HI = buffer[15];
+  raw_telemdata.MOTORDUTY_LO = buffer[14];
+
+  int motorDuty = (int)(((raw_telemdata.MOTORDUTY_HI << 8) + raw_telemdata.MOTORDUTY_LO) / 10);
+  int currentMotorDuty = (motorDuty / 10); //Motor duty cycle
+
+  // Reserved
+  // raw_telemdata.R1 = buffer[17];
+
+  /* Status Flags
+  # Bit position in byte indicates flag set, 1 is set, 0 is default
+  # Bit 0: Motor Started, set when motor is running as expected
+  # Bit 1: Motor Saturation Event, set when saturation detected and power is reduced for desync protection
+  # Bit 2: ESC Over temperature event occuring, shut down method as per configuration
+  # Bit 3: ESC Overvoltage event occuring, shut down method as per configuration
+  # Bit 4: ESC Undervoltage event occuring, shut down method as per configuration
+  # Bit 5: Startup error detected, motor stall detected upon trying to start*/
+  raw_telemdata.statusFlag = buffer[16];
+  telemetryData.statusFlag = raw_telemdata.statusFlag;
+  // Serial.print("status ");
+  // Serial.print(raw_telemdata.statusFlag, BIN);
+  // Serial.print(" - ");
+  // Serial.println(" ");
 }
 
 // old
