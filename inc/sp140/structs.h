@@ -5,7 +5,7 @@
 #pragma pack(push, 1)
 
 // v1 ESC telemetry
-typedef struct { 
+typedef struct {
   float volts;
   float temperatureC;
   float amps;
