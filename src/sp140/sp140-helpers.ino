@@ -255,9 +255,7 @@ void handleSerialData(byte buffer[]) {
     raw_telemdata.I_LO = buffer[4];
 
     int currentAmpsInput = (int)((raw_telemdata.I_HI << 8) + raw_telemdata.I_LO);
-    if (currentAmpsInput < 600 ) { // TODO remove when weird data packets fixed
-      telemetryData.amps = (currentAmpsInput / 12.5); //Input current
-    }
+    telemetryData.amps = (currentAmpsInput / 12.5); //Input current
 
     // Serial.print("amps ");
     // Serial.print(currentAmpsInput);
