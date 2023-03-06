@@ -169,12 +169,7 @@ void handleTelemetry() {
   prepareSerialRead();
   SerialESC.readBytes(escDataV2, ESC_DATA_V2_SIZE);
   //printRawSentence();
-
-  // enforceChecksum();
-  //if (enforceFletcher16()) {
   handleSerialData(escDataV2);
-  //  parseData();
-  //}
 }
 
 // new for v2 ESC telemetry
@@ -251,11 +246,8 @@ void handleSerialData(byte buffer[]) {
   telemetryData.temperatureC = temperature;
 
   // Current
-  raw_telemdata.I_HI = buffer[5];
-  raw_telemdata.I_LO = buffer[4];
-
-  int currentAmpsInput = (int)((raw_telemdata.I_HI << 8) + raw_telemdata.I_LO);
-  telemetryData.amps = (currentAmpsInput / 12.5); //Input current
+  _amps = word(buffer[5], buffer[4]);
+  telemetryData.amps = _amps;
 
   // Serial.print("amps ");
   // Serial.print(currentAmpsInput);
@@ -317,40 +309,6 @@ void handleSerialData(byte buffer[]) {
   // Serial.print(raw_telemdata.statusFlag, BIN);
   // Serial.print(" - ");
   // Serial.println(" ");
-}
-
-// old
-// run checksum and return true if valid
-bool enforceFletcher16() {
-  // Check checksum, revert to previous data if bad:
-  word checksum = (unsigned short)(word(escData[19], escData[18]));
-  unsigned char sum1 = 0;
-  unsigned char sum2 = 0;
-  unsigned short sum = 0;
-  for (int i = 0; i < ESC_DATA_SIZE-2; i++) {
-    sum1 = (unsigned char)(sum1 + escData[i]);
-    sum2 = (unsigned char)(sum2 + sum1);
-  }
-  sum = (unsigned char)(sum1 - sum2);
-  sum = sum << 8;
-  sum |= (unsigned char)(sum2 - 2*sum1);
-  // Serial.print(F("     SUM: "));
-  // Serial.println(sum);
-  // Serial.print(sum1,HEX);
-  // Serial.print(" ");
-  // Serial.println(sum2,HEX);
-  // Serial.print(F("CHECKSUM: "));
-  // Serial.println(checksum);
-  if (sum != checksum) {
-    //Serial.println(F("_____________________CHECKSUM FAILED!"));
-    failed++;
-    if (failed >= 1000) {  // keep track of how reliable the transmission is
-      transmitted = 1;
-      failed = 0;
-    }
-    return false;
-  }
-  return true;
 }
 
 // new v2
