@@ -263,7 +263,7 @@ void handleSerialData(byte buffer[]) {
 
   watts = telemetryData.amps * telemetryData.volts;
 
-  // Reservedz
+  // Reserved
   raw_telemdata.R0_HI = buffer[7];
   raw_telemdata.R0_LO = buffer[6];
 
@@ -275,7 +275,7 @@ void handleSerialData(byte buffer[]) {
 
   int poleCount = 62;
   int currentERPM = (int)((raw_telemdata.RPM0 << 24) + (raw_telemdata.RPM1 << 16) + (raw_telemdata.RPM2 << 8) + (raw_telemdata.RPM3 << 0)); //ERPM output
-  int currentRPM = currentERPM / poleCount; //Real RPM output
+  int currentRPM = currentERPM / poleCount;  // Real RPM output
   telemetryData.eRPM = currentRPM;
 
   // Serial.print("RPM ");
