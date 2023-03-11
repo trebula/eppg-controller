@@ -247,7 +247,7 @@ void handleSerialData(byte buffer[]) {
 
   // Current
   _amps = word(buffer[5], buffer[4]);
-  telemetryData.amps = _amps;
+  telemetryData.amps = _amps / 12.5;
 
   // Serial.print("amps ");
   // Serial.print(currentAmpsInput);
