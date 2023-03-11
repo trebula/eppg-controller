@@ -264,6 +264,7 @@ void initButtons() {
 // inital screen setup and config
 void initDisplay() {
   display.initR(INITR_BLACKTAB);  // Init ST7735S chip, black tab
+  // display.setSPISpeed(40000000);  // 40MHz SPI speed
 
   pinMode(TFT_LITE, OUTPUT);
   resetDisplay();

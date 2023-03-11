@@ -10,7 +10,7 @@
 #define VOLT_OFFSET 1.5
 
 #define VERSION_MAJOR 5
-#define VERSION_MINOR 7
+#define VERSION_MINOR 8
 
 #define CRUISE_GRACE 1.5  // 1.5 sec period to get off throttle
 #define POT_SAFE_LEVEL 0.05 * 4096  // 5% or less
@@ -40,8 +40,9 @@
 #define DIGIT_ARRAY_SIZE      7
 #define ESC_BAUD_RATE         115200
 #define ESC_DATA_SIZE         20
+#define ESC_DATA_V2_SIZE      22
 #define READ_INTERVAL         0
-#define ESC_TIMEOUT           10
+#define ESC_TIMEOUT           15
 #define ENABLE_BUZ            true    // enable buzzer
 #define ENABLE_VIB_LOW_BAT    false   // vibrate if armed and battery voltage sags below min volts. Gets pilot's attention.
 
