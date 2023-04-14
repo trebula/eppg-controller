@@ -441,12 +441,18 @@ int limitedThrottle(int current, int last, int threshold) {
 // ring buffer for voltage readings
 float getBatteryVoltSmoothed() {
   float avg = 0.0;
-
-  if (voltageBuffer.isEmpty()) { return avg; }
-
   using index_t = decltype(voltageBuffer)::index_t;
   for (index_t i = 0; i < voltageBuffer.size(); i++) {
     avg += voltageBuffer[i] / voltageBuffer.size();
+  }
+  return avg;
+}
+
+float getBatteryPercentSmoothed() {
+  float avg = 0.0;
+  using index_t = decltype(batteryPercentBuffer)::index_t;
+  for (index_t i = 0; i < batteryPercentBuffer.size(); i++) {
+    avg += batteryPercentBuffer[i] / batteryPercentBuffer.size();
   }
   return avg;
 }
