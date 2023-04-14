@@ -60,7 +60,3 @@ uint8_t battery_sigmoidal(float voltage, uint16_t minVoltage, uint16_t maxVoltag
   uint8_t result = 105 - (105 / (1 + pow(1.724 * (voltage - minVoltage)/(maxVoltage - minVoltage), 5.5)));
   return result >= 100 ? 100 : result;
 }
-
-void estimate_initial_soc() {
-  // measured voltage, divide by number of cells in series
-}
