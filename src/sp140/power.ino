@@ -1,6 +1,9 @@
 // Copyright 2021 <Zach Whitehead>
 // OpenPPG
 
+#include "../../inc/VoltageCurves.h"
+#include "../../inc/sp140/shared-config.h"
+
 // simple set of data points from load testing
 // maps voltage to battery percentage
 float getBatteryPercent(float voltage) {
@@ -28,6 +31,52 @@ float getBatteryPercent(float voltage) {
     battPercent = mapd(voltage, 60.96, 78, 0, 10);
   }
   return constrain(battPercent, 0, 100);
+}
+
+unsigned int CELLS_IN_SERIES = 24;
+unsigned int CELLS_IN_PARALLEL = 10;
+
+// estimate remaining battery percent using cell manufacturer's voltage curves
+float getBatteryPercent(float voltage, float current) {
+  // calculate cell voltage and current (assume evenly distributed)
+  voltage = voltage / CELLS_IN_SERIES;
+  current = current / CELLS_IN_PARALLEL;
+
+  // find the two voltage curves with the closest current
+  const int numCurves = sizeof(VOLTAGE_CURVES) / sizeof(*VOLTAGE_CURVES);
+  const VoltageCurve *lower = VOLTAGE_CURVES;
+  const VoltageCurve *higher = VOLTAGE_CURVES + 1;
+  const VoltageCurve *end = VOLTAGE_CURVES + numCurves;
+  while (higher != end && current > higher->current) {
+    lower++;
+    higher++;
+  }
+
+  // interpolate between the two curves
+  float energyLowerCurrent = getEnergy(voltage, lower->voltageCurve, lower->energyLookup, lower->numPoints);
+  float energyHigherCurrent = getEnergy(voltage, higher->voltageCurve, higher->energyLookup, higher->numPoints);
+  float remainingEnergy = mapd(current, lower->current, higher->current, energyLowerCurrent, energyHigherCurrent);
+  float totalEnergy = mapd(current, lower->current, higher->current, lower->totalEnergy, higher->totalEnergy);
+  return constrain(remainingEnergy / totalEnergy * 100, 0, 100);
+}
+
+
+// given a voltage, voltage curve, energy lookup, and length of curve, return the energy (Wh)
+float getEnergy(float voltage, const float *voltageCurve, const float *energyLookup, const int len) {
+  // find the closest voltage in the curve (voltages are in descending order)
+  const float *higherVoltage = voltageCurve;
+  const float *lowerVoltage = voltageCurve + 1;
+  const float *higherEnergy = energyLookup;
+  const float *lowerEnergy = energyLookup + 1;
+  const float *end = voltageCurve + len;
+  while (lowerVoltage != end && voltage < *lowerVoltage) {
+    higherVoltage++;
+    lowerVoltage++;
+    higherEnergy++;
+    lowerEnergy++;
+  }
+  // remove remaining energy in between both data points
+  return mapd(voltage, *higherVoltage, *lowerVoltage, *higherEnergy, *lowerEnergy);
 }
 
 
