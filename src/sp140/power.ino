@@ -4,16 +4,13 @@
 #include "../../inc/VoltageCurves.h"
 #include "../../inc/sp140/globals.h"
 
-unsigned int CELLS_IN_SERIES = 24;
-unsigned int CELLS_IN_PARALLEL = 10;
-
 // estimate remaining battery percent using cell manufacturer's voltage curves
 float getBatteryPercent(float voltage) {
   float current = telemetryData.amps;
   const float temperature = ambientTempC;
   // calculate cell voltage and current (assume evenly distributed)
-  voltage = voltage / CELLS_IN_SERIES;
-  current = current / CELLS_IN_PARALLEL;
+  voltage = voltage / cellsInSeries;
+  current = current / cellsInParallel;
 
   // voltage curves measured at 23C
   // temperature compensation at cold temperatures

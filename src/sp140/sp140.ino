@@ -131,6 +131,7 @@ void setup() {
 #endif
   refreshDeviceData();
   setup140();
+  updateBatteryInfo();
 #ifdef M0_PIO
   Watchdog.reset();
 #endif
