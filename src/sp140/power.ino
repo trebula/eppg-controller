@@ -37,10 +37,21 @@ unsigned int CELLS_IN_SERIES = 24;
 unsigned int CELLS_IN_PARALLEL = 10;
 
 // estimate remaining battery percent using cell manufacturer's voltage curves
-float getBatteryPercent(float voltage, float current) {
+float getBatteryPercent(float voltage, float current, float temperature) {
   // calculate cell voltage and current (assume evenly distributed)
   voltage = voltage / CELLS_IN_SERIES;
   current = current / CELLS_IN_PARALLEL;
+
+  // voltage curves measured at 23C
+  // temperature compensation at cold temperatures
+  if (temperature < 0) {
+    // 8.4% voltage drop from 23C to -20C
+    voltage = voltage * mapd(temperature, 23, -20, 1, 1.084);
+  }
+  else if (temperature < 10) {
+    // 3.5% voltage drop from 23C to 0C
+    voltage = voltage * mapd(temperature, 23, 0, 1, 1.035);
+  }
 
   // find the two voltage curves with the closest current
   const int numCurves = sizeof(VOLTAGE_CURVES) / sizeof(*VOLTAGE_CURVES);
