@@ -79,6 +79,9 @@ uint32_t cruisedAtMilisMilis = 0;
 unsigned int armedSecs = 0;
 unsigned int last_throttle = 0;
 
+float initialSOCMovingAvg = 0;
+unsigned int numInitialSOCReadings = 0;
+
 #pragma message "Warning: OpenPPG software is in beta"
 
 // the setup function runs once when you press reset or power the board
@@ -601,6 +604,6 @@ void trackPower() {
   prevPwrMillis = currentPwrMillis;
 
   if (armed) {
-    wattsHoursUsed += round(watts/60/60*msec_diff)/1000.0;
+    wattsHoursUsed += (watts/60/60*msec_diff)/1000.0;
   }
 }

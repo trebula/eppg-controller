@@ -1,6 +1,29 @@
 // Copyright 2021 <Zach Whitehead>
 // OpenPPG
 
+void updateBatteryPercent() {
+  if (millis() < BATTERY_ANALYSIS_END) {
+    batteryPercent = analyzeInitialBatteryPercent();
+  } else {
+    float currentEnergy = batteryPercent / 100 * exactCapacityWh;
+    float newEnergy = currentEnergy - wattsHoursUsed;
+    batteryPercent = newEnergy / exactCapacityWh * 100;
+  }
+}
+
+// get initial battery percent and update moving average
+float analyzeInitialBatteryPercent() {
+  // use voltage curve to estimate SOC
+  float avgVoltage = getBatteryVoltSmoothed();
+  float batteryPercent = getBatteryPercent(avgVoltage);
+
+  if (millis() > BATTERY_ANALYSIS_START) {
+    initialSOCMovingAvg = (initialSOCMovingAvg * numInitialSOCReadings + batteryPercent) / (numInitialSOCReadings + 1);
+    return initialSOCMovingAvg;
+  }
+  return batteryPercent;
+}
+
 // simple set of data points from load testing
 // maps voltage to battery percentage
 float getBatteryPercent(float voltage) {
@@ -36,4 +59,8 @@ float getBatteryPercent(float voltage) {
 uint8_t battery_sigmoidal(float voltage, uint16_t minVoltage, uint16_t maxVoltage) {
   uint8_t result = 105 - (105 / (1 + pow(1.724 * (voltage - minVoltage)/(maxVoltage - minVoltage), 5.5)));
   return result >= 100 ? 100 : result;
+}
+
+void estimate_initial_soc() {
+  // measured voltage, divide by number of cells in series
 }
