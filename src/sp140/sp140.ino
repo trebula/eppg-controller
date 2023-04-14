@@ -392,7 +392,7 @@ void updateDisplay() {
 
   display.setTextColor(BLACK);
   float avgVoltage = getBatteryVoltSmoothed();
-  batteryPercent = getBatteryPercent(avgVoltage);  // multi-point line
+  batteryPercent = getBatteryPercent(avgVoltage);
   // change battery color based on charge
   int batt_width = map((int)batteryPercent, 0, 100, 0, 108);
   display.fillRect(0, 0, batt_width, 36, batt2color(batteryPercent));
