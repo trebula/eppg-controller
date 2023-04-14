@@ -394,12 +394,14 @@ void updateDisplay() {
   //display.print("kW");
 
   display.setTextColor(BLACK);
-  float avgVoltage = getBatteryVoltSmoothed();
-  batteryPercent = getBatteryPercent(avgVoltage);  // multi-point line
+  updateBatteryPercent();
+
   // change battery color based on charge
   int batt_width = map((int)batteryPercent, 0, 100, 0, 108);
   display.fillRect(0, 0, batt_width, 36, batt2color(batteryPercent));
 
+  // check voltage to see if battery is dead (more reliable than percent)
+  float avgVoltage = getBatteryVoltSmoothed();
   if (avgVoltage < BATT_MIN_V) {
     if (batteryFlag) {
       batteryFlag = false;
