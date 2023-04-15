@@ -9,6 +9,7 @@ void updateBatteryPercent() {
     float newEnergy = currentEnergy - wattsHoursUsed;
     batteryPercent = newEnergy / exactCapacityWh * 100;
   }
+  batteryPercent = constrain(batteryPercent, 0, 100);
 }
 
 // get initial battery percent and update moving average
@@ -19,6 +20,7 @@ float analyzeInitialBatteryPercent() {
 
   if (millis() > BATTERY_ANALYSIS_START) {
     initialSOCMovingAvg = (initialSOCMovingAvg * numInitialSOCReadings + batteryPercent) / (numInitialSOCReadings + 1);
+    numInitialSOCReadings++;
     return initialSOCMovingAvg;
   }
   return batteryPercent;
