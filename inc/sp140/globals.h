@@ -24,6 +24,8 @@ float seconds = 0;
 float prevSeconds = 0;
 float hours = 0;  // logged flight hours
 float wattsHoursUsed = 0;
+float initialBatteryEnergy = 0;
+bool analysisFlag = true;
 
 uint16_t _volts = 0;
 uint16_t _temperatureC = 0;
