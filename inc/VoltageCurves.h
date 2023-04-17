@@ -1,4 +1,4 @@
-// Voltage curves at different currents based on product data sheet
+// Voltage curves at different currents for a single battery cell based on product data sheet
 // Energy lookup table is total energy minus integral of voltage curve at each point
 // Data from https://www.molicel.com/wp-content/uploads/INR21700P42A-V4-80092.pdf
 typedef struct  {

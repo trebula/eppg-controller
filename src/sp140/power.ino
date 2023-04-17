@@ -12,8 +12,8 @@ float getBatteryPercent(float voltage) {
   voltage = voltage / cellsInSeries;
   current = current / cellsInParallel;
 
-  // voltage curves measured at 23C
-  // temperature compensation at cold temperatures
+  // voltage curves measured at 23C - transpose curve by adding cold temperature correction term
+  // voltage has greater drop rate when <0C than between 0C and 10C
   if (temperature < 0) {
     // 8.4% voltage drop from 23C to -20C
     voltage = voltage * mapd(temperature, 23, -20, 1, 1.084);
@@ -27,7 +27,7 @@ float getBatteryPercent(float voltage) {
   const int numCurves = sizeof(VOLTAGE_CURVES) / sizeof(*VOLTAGE_CURVES);
   const VoltageCurve *lower = VOLTAGE_CURVES;
   const VoltageCurve *higher = VOLTAGE_CURVES + 1;
-  const VoltageCurve *end = VOLTAGE_CURVES + numCurves;
+  const VoltageCurve *end = VOLTAGE_CURVES + numCurves - 1; // ensure both pointers are valid
   while (higher != end && current > higher->current) {
     lower++;
     higher++;
@@ -49,7 +49,7 @@ float getEnergy(float voltage, const float *voltageCurve, const float *energyLoo
   const float *lowerVoltage = voltageCurve + 1;
   const float *higherEnergy = energyLookup;
   const float *lowerEnergy = energyLookup + 1;
-  const float *end = voltageCurve + len;
+  const float *end = voltageCurve + len - 1; // ensure both pointers are valid
   while (lowerVoltage != end && voltage < *lowerVoltage) {
     higherVoltage++;
     lowerVoltage++;
