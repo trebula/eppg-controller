@@ -1,7 +1,7 @@
 // Copyright 2021 <Zach Whitehead>
 // OpenPPG
 
-#include "../../inc/VoltageCurves.h"
+#include "../../inc/sp140/voltage-curves.h"
 #include "../../inc/sp140/globals.h"
 
 // estimate remaining battery percent using cell manufacturer's voltage curves
